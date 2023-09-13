@@ -61,20 +61,13 @@ main() {
 
   while [ $# -gt 0 ]; do
     case "$1" in
-      --daily)
-        snapshot_tag="daily_snapshot"
-        shift
-        ;;
-      --weekly)
-        snapshot_tag="weekly_snapshot"
-        shift
-        ;;
-      --monthly)
-        snapshot_tag="monthly_snapshot"
-        shift
+      --tag)
+        snapshot_tag="$2"
+        shift 2
         ;;
       --name)
         snapshot_name="$2"
+        name_specified=1
         shift 2
         ;;
       --env-file)
@@ -84,7 +77,7 @@ main() {
         shift 2
         ;;
       *)
-        echo "Usage: snapshot.sh [--env-file <path>] [--daily|--weekly|--monthly]>"
+        echo "Usage: snapshot.sh [--env-file <path>] [--tag <tag>] [--name <name>]"
         return 1
         ;;
     esac
@@ -96,10 +89,12 @@ main() {
     return 1
   fi
   
-  # Add tag to name
-  snapshot_name="${snapshot_name}_${snapshot_tag}"
+  ## add tag to name if not explicitly specified
+  if [ -z "${name_specified:-}" ]; then
+    snapshot_name="${snapshot_name}_${snapshot_tag}"
+  fi
 
-  ## get volume id
+  ## get volume json
   if ! volume_json=$(http__curl -X GET \
     -H 'Content-Type: application/json' \
     -H 'Authorization: Bearer '$api \
@@ -109,6 +104,7 @@ main() {
     return 1
   fi
 
+  ## get volume id
   if ! volume_id="$(echo "$volume_json" \
     | jq -r '.volumes[].id' 2>&1)"; then
     echo >&2 "$volume_id"
@@ -116,7 +112,7 @@ main() {
     return 1
   fi
 
-  # get snaphost id that would deleted
+  ## get snapshot json for deletion
   if ! snapshot_json=$(http__curl -X GET \
     -H 'Content-Type: application/json' \
     -H 'Authorization: Bearer '$api \
@@ -126,6 +122,7 @@ main() {
     return 1
   fi
 
+  ## get snapshot id
   if ! snapshot_id=$(echo "$snapshot_json" \
     | jq '.snapshots | map(select((.created_at < "'$now'" ))) | map(select(.tags[] | contains ("'$snapshot_tag'") ))' \
     | jq -r '.[].id' 2>&1); then
@@ -142,12 +139,11 @@ main() {
       "https://api.digitalocean.com/v2/snapshots/$snapshot_id" 2>&1)"; then
       echo >&2 "$delete_json"
       err "Unable to delete snapshot."
-      return 1
     fi
     inf "Deleted snapshot id: $snapshot_id"
   fi
 
-  ## create new snapshot today
+  ## create new snapshot
   if ! create_json="$(http__curl -X POST \
     -H 'Content-Type: application/json' \
     -H 'Authorization: Bearer '$api \
