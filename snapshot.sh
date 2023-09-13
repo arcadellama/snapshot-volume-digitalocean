@@ -14,11 +14,11 @@ volume_name=""
 
 
 inf() {
-  echo "[$now] $*"
+  echo "[$(date '+%Y%m%dT%TZ')] $*"
 }
 
 err() {
-  echo >&2 "[$now] ERROR: $*"
+  echo >&2 "[$(date '+%Y%m%dT%TZ')] ERROR: $*"
 }
 
 main() {
