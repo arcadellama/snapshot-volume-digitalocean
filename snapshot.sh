@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# shellcheck disable=SC1090,SC2086
 api=""
 env_file=""
 now=$(date +"%Y-%m-%d")
