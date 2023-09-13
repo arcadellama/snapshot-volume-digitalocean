@@ -32,7 +32,7 @@ while [ $# -gt 0 ]; do
       shift 2
       ;;
     *)
-      echo "Usage: snapshot.sh [--env-file <path>] [--daily|--weekly|--monthly]>"
+      echo >&2 "Usage: snapshot.sh [--env-file <path>] [--daily|--weekly|--monthly]>"
       exit 1
       ;;
   esac
@@ -40,24 +40,30 @@ done
 
 ## check value of predefined variable
 if [ "$api" == "" ] || [ "$snapshot_name" == "" ] || [ "$snapshot_tag" == "" ] || [ "$volume_name" == "" ]; then
-  echo "Please check your variable value"
+  echo >&2 "Please check your variable value"
   exit 1
 fi
 
 ## get volume id
-volume_id=$(curl -X GET \
+if ! volume_id=$(curl -X GET \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer '$api \
   "https://api.digitalocean.com/v2/volumes?name=$volume_name" \
-  | jq -r '.volumes[].id') || { echo "$volume_id" ; exit 1; }
+  | jq -r '.volumes[].id' 2>&1); then
+  echo >&2 "$volume_id"
+  exit 1
+fi
 
 # get snaphost id that would deleted
-snapshot_id=$(curl -X GET \
+if ! snapshot_id=$(curl -X GET \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer '$api \
   "https://api.digitalocean.com/v2/volumes/$volume_id/snapshots?page=1&per_page=1" \
   | jq '.snapshots | map(select((.created_at < "'$now'" ))) | map(select(.tag contains "'$snapshot_name'"))' \
-  | jq -r '.[].id') || { echo "$snapshot_id" ; exit 1 ; }
+  | jq -r '.[].id' 2>&1); then
+  echo >&2 "$snapshot_id"
+  exit 1
+fi
 
 ## delete snapshot
 curl -X DELETE \
