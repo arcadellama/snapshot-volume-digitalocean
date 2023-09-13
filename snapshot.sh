@@ -1,11 +1,17 @@
 #!/bin/bash
 # shellcheck disable=SC1090,SC2086
+
+set -eu
+LC_ALL=C
+export TZ='UTC'
+
 api=""
 env_file=""
 now=$(date +"%Y-%m-%d")
 snapshot_name=""
 snapshot_tag=""
 volume_name=""
+
 
 inf() {
   echo "[$now] $*"
