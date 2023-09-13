@@ -158,7 +158,7 @@ main() {
     return 1
   fi
 
-  inf "Created new snapshot with tag: $snapshot_tag"
+  inf "Created new snapshot: $snapshot_name"
 }
 
 main "$@"
