@@ -124,7 +124,7 @@ main() {
     exit 1
   fi
 
-  inf "Created new snapshot id: $create_id"
+  inf "Created new snapshot id $create_id with tag: $snapshot_tag"
 }
 
 main "$@"
