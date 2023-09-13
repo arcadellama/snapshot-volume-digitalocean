@@ -95,6 +95,9 @@ main() {
     err "Please check your variable value"
     return 1
   fi
+  
+  # Add tag to name
+  snapshot_name="${snapshot_name}_${snapshot_tag}"
 
   ## get volume id
   if ! volume_json=$(http__curl -X GET \
