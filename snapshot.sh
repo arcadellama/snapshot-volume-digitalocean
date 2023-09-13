@@ -62,15 +62,15 @@ main() {
   while [ $# -gt 0 ]; do
     case "$1" in
       --daily)
-        snapshot_tag="daily_backup"
+        snapshot_tag="daily_snapshot"
         shift
         ;;
       --weekly)
-        snapshot_tag="weekly_backup"
+        snapshot_tag="weekly_snapshot"
         shift
         ;;
       --monthly)
-        snapshot_tag="monthly_backup"
+        snapshot_tag="monthly_snapshot"
         shift
         ;;
       --name)
