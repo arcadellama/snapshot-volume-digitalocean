@@ -7,6 +7,14 @@ snapshot_name=""
 snapshot_tag=""
 volume_name=""
 
+inf() {
+  echo "[$now] $*"
+}
+
+err() {
+  echo >&2 "[$now] ERROR: $*"
+}
+
 if [ -n "$env_file" ] && [ -r "$env_file" ]; then
   . "$env_file" || exit 1
 fi
@@ -32,7 +40,7 @@ while [ $# -gt 0 ]; do
       shift 2
       ;;
     *)
-      echo >&2 "Usage: snapshot.sh [--env-file <path>] [--daily|--weekly|--monthly]>"
+      echo "Usage: snapshot.sh [--env-file <path>] [--daily|--weekly|--monthly]>"
       exit 1
       ;;
   esac
@@ -40,40 +48,71 @@ done
 
 ## check value of predefined variable
 if [ "$api" == "" ] || [ "$snapshot_name" == "" ] || [ "$snapshot_tag" == "" ] || [ "$volume_name" == "" ]; then
-  echo >&2 "Please check your variable value"
+  err "Please check your variable value"
   exit 1
 fi
 
 ## get volume id
-if ! volume_id=$(curl -X GET \
+if ! volume_id=$(curl -sS -X GET \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer '$api \
   "https://api.digitalocean.com/v2/volumes?name=$volume_name" \
   | jq -r '.volumes[].id' 2>&1); then
   echo >&2 "$volume_id"
+  err "Unable to get volume id."
   exit 1
 fi
 
 # get snaphost id that would deleted
-if ! snapshot_id=$(curl -X GET \
+if ! snapshot_id=$(curl -sS -X GET \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer '$api \
-  "https://api.digitalocean.com/v2/volumes/$volume_id/snapshots?page=1&per_page=1" \
-  | jq '.snapshots | map(select((.created_at < "'$now'" ))) | map(select(.tag contains "'$snapshot_name'"))' \
+  "https://api.digitalocean.com/v2/volumes/$volume_id/snapshots" \
+  | jq '.snapshots | map(select((.created_at < "'$now'" ))) | map(select(.tags[] | contains ("'$snapshot_tag'") ))' \
   | jq -r '.[].id' 2>&1); then
+  err "Unable to get snapshot id."
   echo >&2 "$snapshot_id"
   exit 1
 fi
 
 ## delete snapshot
-curl -X DELETE \
-  -H 'Content-Type: application/json' \
-  -H 'Authorization: Bearer '$api \
-  "https://api.digitalocean.com/v2/snapshots/$snapshot_id"
+if [ -n "$snapshot_id" ]; then
+  if ! delete_id="$(curl -sS -X DELETE \
+    -H 'Content-Type: application/json' \
+    -H 'Authorization: Bearer '$api \
+    "https://api.digitalocean.com/v2/snapshots/$snapshot_id" \
+    | jq -r '.id' 2>&1)"; then
+    echo >&2 "$delete_id"
+    err "Unable to delete snapshot."
+    exit 1
+  fi
+
+  # Deletion returns nothing, so an ID is a problem
+  if [ -n "$delete_id" ]; then
+    echo >&2 "$delete_id"
+    err "Unknown error deleting snapshot $snapshot_id."
+    exit 1
+  fi
+
+  inf "Deleted snapshot id: $snapshot_id"
+fi
 
 ## create new snapshot today
-curl -X POST \
+if ! create_id="$(curl -sS -X POST \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer '$api \
   -d '{"name":"'$snapshot_name'","tags":["'$snapshot_tag'"]}' \
-  "https://api.digitalocean.com/v2/volumes/$volume_id/snapshots"
+  "https://api.digitalocean.com/v2/volumes/$volume_id/snapshots" \
+  | jq -r '.snapshots.id' 2>&1)"; then
+  echo >&2 "$create_id"
+  err "Unable to create new snapshot"
+  exit 1
+fi
+
+# Error out if no creation id
+if [ "$create_id" = "null" ] || [ -z "$create_id" ]; then
+  err "Unknown error creating new snapshot."
+  exit 1
+fi
+
+inf "Created new snapshot id: $create_id"
