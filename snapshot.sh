@@ -49,7 +49,7 @@ volume_id=$(curl -X GET \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer '$api \
   "https://api.digitalocean.com/v2/volumes?name=$volume_name" \
-  | jq -r '.volumes[].id')
+  | jq -r '.volumes[].id') || { echo "$volume_id" ; exit 1; }
 
 # get snaphost id that would deleted
 snapshot_id=$(curl -X GET \
@@ -57,7 +57,7 @@ snapshot_id=$(curl -X GET \
   -H 'Authorization: Bearer '$api \
   "https://api.digitalocean.com/v2/volumes/$volume_id/snapshots?page=1&per_page=1" \
   | jq '.snapshots | map(select((.created_at < "'$now'" ))) | map(select(.tag contains "'$snapshot_name'"))' \
-  | jq -r '.[].id')
+  | jq -r '.[].id') || { echo "$snapshot_id" ; exit 1 ; }
 
 ## delete snapshot
 curl -X DELETE \
