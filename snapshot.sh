@@ -73,6 +73,10 @@ main() {
         snapshot_tag="monthly_backup"
         shift
         ;;
+      --name)
+        snapshot_name="$2"
+        shift 2
+        ;;
       --env-file)
         if [ -r "$2" ]; then
           . "$2" || return 1
