@@ -113,16 +113,32 @@ main() {
   fi
 
   ## create new snapshot today
-  if ! create_id="$(curl -sS -X POST \
+  if ! create_json="$(curl -sS -X POST \
     -H 'Content-Type: application/json' \
     -H 'Authorization: Bearer '$api \
     -d '{"name":"'$snapshot_name'","tags":["'$snapshot_tag'"]}' \
-    "https://api.digitalocean.com/v2/volumes/$volume_id/snapshots" \
-    | jq -r '.snapshots.id' 2>&1)"; then
+    "https://api.digitalocean.com/v2/volumes/$volume_id/snapshots")"; then
+    echo >&2 "$create_json"
+    err "Unable to create new snapshot"
+    exit 1
+  fi
+  echo "DEBUG:"
+  echo "$create_json"
+
+  if ! create_id="$(echo "$create_json" | jq -r '.snapshots.id' 2>&1)"; then
     echo >&2 "$create_id"
     err "Unable to create new snapshot"
     exit 1
   fi
+
+  # Check for error message
+  case "$create_id" in 
+    {\"message\"*) 
+      echo >&2 "$create_id"
+      err "Unable to create new snapshot."
+      exit 1
+      ;;
+  esac
 
   # Error out if no creation id
   if [ "$create_id" = "null" ] || [ -z "$create_id" ]; then
